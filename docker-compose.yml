@@ -1,0 +1,44 @@
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: devops-app
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: app
+      DB_PASSWORD: secret
+      DB_NAME: appdb
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app_net
+
+  db:
+    image: postgres:16-alpine
+    container_name: devops-db
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: appdb
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d appdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - app_net
+
+networks:
+  app_net:
+    driver: bridge
+
+volumes:
+  db_data:

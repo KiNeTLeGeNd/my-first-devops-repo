@@ -1,0 +1,53 @@
+name: Full Stack Application Deployment Test
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  deploy-and-test:
+    runs-on: self-hosted
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Create .env file from secrets
+      run: |
+        cat > .env << EOF
+        DB_PASSWORD=secret
+        APP_PORT=8080
+        EOF
+
+    - name: Deploy with Docker Compose
+      run: |
+        docker compose up -d --build
+        sleep 15
+        docker compose ps
+
+    - name: Verify containers are running
+      run: |
+        if docker compose ps | grep -q "Up"; then
+          echo "All containers are running"
+        else
+          docker compose logs
+          exit 1
+        fi
+
+    - name: Run application tests
+      run: |
+        if curl -f http://localhost:8080; then
+          echo "Web application is healthy"
+        else
+          exit 1
+        fi
+        DB_COUNT=$(docker compose exec -T db psql -U app -d appdb -t -c "SELECT COUNT(*) FROM items;" | tr -d ' ')
+        WEB_COUNT=$(curl -s http://localhost:8080/api/items | grep -o 'id' | wc -l)
+        echo "Database count: $DB_COUNT"
+        echo "Web API count: $WEB_COUNT"
+        if [ "$DB_COUNT" = "$WEB_COUNT" ]; then
+          echo "Data consistency test passed"
+        else
+          exit 1
+        fi

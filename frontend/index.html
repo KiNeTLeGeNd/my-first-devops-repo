@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DevOps App</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        li { font-size: 18px; margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>Мое Fullstack приложение</h1>
+    <button onclick="loadItems()" style="padding: 10px 20px; font-size: 16px;">Загрузить данные из БД</button>
+    <ul id="list"></ul>
+
+    <script>
+        async function loadItems() {
+            const res = await fetch('/api/items');
+            const data = await res.json();
+            const list = document.getElementById('list');
+            list.innerHTML = '';
+            data.forEach(item => {
+                const li = document.createElement('li');
+                li.innerText = item.id + " - " + item.name;
+                list.appendChild(li);
+            });
+        }
+    </script>
+</body>
+</html>
