@@ -13,41 +13,48 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Create .env file from secrets
+    - name: Create .env file
       run: |
-        cat > .env << EOF
-        DB_PASSWORD=secret
-        APP_PORT=8080
-        EOF
+        "DB_PASSWORD=secret" | Out-File -FilePath .env -Encoding utf8
+        "APP_PORT=8080" | Out-File -FilePath .env -Encoding utf8 -Append
 
     - name: Deploy with Docker Compose
       run: |
+        docker compose down
         docker compose up -d --build
-        sleep 15
+        Start-Sleep -Seconds 20
         docker compose ps
 
     - name: Verify containers are running
       run: |
-        if docker compose ps | grep -q "Up"; then
-          echo "All containers are running"
-        else
+        $status = docker compose ps
+        if ($status -match "Up") {
+          Write-Host "All containers are running"
+        } else {
+          Write-Host "Some containers failed to start"
           docker compose logs
           exit 1
-        fi
+        }
 
     - name: Run application tests
       run: |
-        if curl -f http://localhost:8080; then
-          echo "Web application is healthy"
-        else
+        try {
+          $response = Invoke-WebRequest -Uri "http://localhost:8080" -UseBasicParsing
+          Write-Host "Web application is healthy"
+        } catch {
+          Write-Host "Web application health check failed"
           exit 1
-        fi
-        DB_COUNT=$(docker compose exec -T db psql -U app -d appdb -t -c "SELECT COUNT(*) FROM items;" | tr -d ' ')
-        WEB_COUNT=$(curl -s http://localhost:8080/api/items | grep -o 'id' | wc -l)
-        echo "Database count: $DB_COUNT"
-        echo "Web API count: $WEB_COUNT"
-        if [ "$DB_COUNT" = "$WEB_COUNT" ]; then
-          echo "Data consistency test passed"
-        else
+        }
+
+        $DB_COUNT = (docker compose exec -T db psql -U app -d appdb -t -c "SELECT COUNT(*) FROM items;").Trim()
+        $WEB_COUNT = (Invoke-WebRequest -Uri "http://localhost:8080/api/items" -UseBasicParsing).Content | Select-String -Pattern 'id' -AllMatches | ForEach-Object { $_.Matches } | Measure-Object | Select-Object -ExpandProperty Count
+
+        Write-Host "Database count: $DB_COUNT"
+        Write-Host "Web API count: $WEB_COUNT"
+
+        if ($DB_COUNT -eq $WEB_COUNT) {
+          Write-Host "Data consistency test passed"
+        } else {
+          Write-Host "Data consistency test failed"
           exit 1
-        fi
+        }
