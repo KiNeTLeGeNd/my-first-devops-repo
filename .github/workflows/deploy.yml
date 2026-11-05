@@ -19,12 +19,12 @@ jobs:
         "APP_PORT=8080" | Out-File -FilePath .env -Encoding utf8 -Append
 
     - name: Deploy with Docker Compose
-   run: |
-     docker compose down --remove-orphans
-     docker rm -f devops-app devops-db
-     docker compose up -d --build
-     Start-Sleep -Seconds 20
-     docker compose ps
+      run: |
+        docker compose down --remove-orphans
+        docker rm -f devops-app devops-db
+        docker compose up -d --build
+        Start-Sleep -Seconds 20
+        docker compose ps
 
     - name: Verify containers are running
       run: |
