@@ -31,25 +31,8 @@ jobs:
           echo "Version: $VER"
           echo "pkg_ver=$VER" >> $env:GITHUB_OUTPUT
           
-          $ROOT = "build/syspulse_$VER"
-          mkdir "$ROOT/DEBIAN" -Force
-          mkdir "$ROOT/usr/bin" -Force
-          Copy-Item "dist/syspulse" "$ROOT/usr/bin/syspulse"
-          
-          $control = @"
-Package: syspulse
-Version: $VER
-Section: utils
-Priority: optional
-Architecture: amd64
-Maintainer: DevOps Team <devops@example.com>
-Description: Lightweight CLI tool for a system health snapshot
- Reads /proc and reports uptime, load average and memory info.
-Depends: libc6 (>= 2.17)
-"@
-          $control | Out-File -FilePath "$ROOT/DEBIAN/control" -Encoding ascii -NoNewline
-          
-          docker run --rm -v "${PWD}:/src" -w /src ubuntu:22.04 bash -c "apt-get update -qq && apt-get install -y -qq dpkg > /dev/null && dpkg-deb --build --root-owner-group /src/$ROOT /src/dist/syspulse_$VER`_amd64.deb"
+          # Запускаем контейнер Ubuntu, который сам создаст структуру и соберет .deb
+          docker run --rm -v "${PWD}:/src" -w /src ubuntu:22.04 bash -c "apt-get update -qq && apt-get install -y -qq dpkg > /dev/null && mkdir -p build/syspulse_$VER/DEBIAN build/syspulse_$VER/usr/bin && cp dist/syspulse build/syspulse_$VER/usr/bin/syspulse && chmod 755 build/syspulse_$VER/usr/bin/syspulse && printf 'Package: syspulse\nVersion: $VER\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: DevOps Team <devops@example.com>\nDescription: Lightweight CLI tool for a system health snapshot\n Reads /proc and reports uptime, load average and memory info.\nDepends: libc6 (>= 2.17)\n' > build/syspulse_$VER/DEBIAN/control && dpkg-deb --build --root-owner-group build/syspulse_$VER dist/syspulse_$VER`_amd64.deb"
           
           echo "deb_path=dist/syspulse_$VER`_amd64.deb" >> $env:GITHUB_OUTPUT
 
