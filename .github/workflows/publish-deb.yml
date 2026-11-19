@@ -21,21 +21,11 @@ jobs:
           echo "Version: $VER"
           echo "pkg_ver=$VER" >> $env:GITHUB_OUTPUT
           
-          # Запускаем контейнер golang, который сам соберет бинарник, создаст структуру и соберет .deb
-          docker run --rm -v "${PWD}:/src" -w /src golang:1.21 bash -c "
-            apt-get update -qq && apt-get install -y -qq dpkg > /dev/null
-            go mod init syspulse || true
-            GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o dist/syspulse .
-            
-            ROOT=build/syspulse_$VER
-            mkdir -p \${ROOT}/DEBIAN \${ROOT}/usr/bin
-            cp dist/syspulse \${ROOT}/usr/bin/syspulse
-            chmod 755 \${ROOT}/usr/bin/syspulse
-            
-            printf 'Package: syspulse\nVersion: $VER\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: DevOps Team <devops@example.com>\nDescription: Lightweight CLI tool for a system health snapshot\n Reads /proc and reports uptime, load average and memory info.\nDepends: libc6 (>= 2.17)\n' > \${ROOT}/DEBIAN/control
-            
-            dpkg-deb --build --root-owner-group \${ROOT} dist/syspulse_${VER}_amd64.deb
-          "
+          # Вся команда bash собрана в ОДНУ строку без переносов, чтобы PowerShell не ломал её
+          $cmd = "apt-get update -qq && apt-get install -y -qq dpkg > /dev/null && go mod init syspulse || true; GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o dist/syspulse .; ROOT=build/syspulse_$VER; mkdir -p \${ROOT}/DEBIAN \${ROOT}/usr/bin; cp dist/syspulse \${ROOT}/usr/bin/syspulse; chmod 755 \${ROOT}/usr/bin/syspulse; printf 'Package: syspulse\\nVersion: $VER\\nSection: utils\\nPriority: optional\\nArchitecture: amd64\\nMaintainer: DevOps Team <devops@example.com>\\nDescription: Lightweight CLI tool for a system health snapshot\\n Reads /proc and reports uptime, load average and memory info.\\nDepends: libc6 (>= 2.17)\\n' > \${ROOT}/DEBIAN/control; dpkg-deb --build --root-owner-group \${ROOT} dist/syspulse_${VER}_amd64.deb"
+          
+          docker run --rm -v "${PWD}:/src" -w /src golang:1.21 bash -c "$cmd"
+          
           echo "deb_path=dist/syspulse_$VER`_amd64.deb" >> $env:GITHUB_OUTPUT
 
       - name: Upload .deb to Nexus (REST API)
@@ -54,9 +44,5 @@ jobs:
         shell: powershell
         run: |
           $nexusHost = "${{ secrets.NEXUS_HOST }}"
-          docker run --rm -e NEXUS_HOST="$nexusHost" ubuntu:22.04 bash -c "
-            apt-get update -y && apt-get install -y --no-install-recommends ca-certificates curl
-            echo 'deb [trusted=yes] http://'`$NEXUS_HOST':8081/repository/syspulse/ stable main' > /etc/apt/sources.list.d/syspulse.list
-            apt-get update && apt-get install -y syspulse
-            syspulse --version
-          "
+          $cmd = "apt-get update -y && apt-get install -y --no-install-recommends ca-certificates curl; echo 'deb [trusted=yes] http://'`$NEXUS_HOST':8081/repository/syspulse/ stable main' > /etc/apt/sources.list.d/syspulse.list; apt-get update && apt-get install -y syspulse; syspulse --version"
+          docker run --rm -e NEXUS_HOST="$nexusHost" ubuntu:22.04 bash -c "$cmd"
