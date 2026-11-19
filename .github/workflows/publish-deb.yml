@@ -21,7 +21,6 @@ jobs:
           echo "Version: $VER"
           echo "pkg_ver=$VER" >> $env:GITHUB_OUTPUT
           
-          # Запускаем Docker с golang, копируем файлы и собираем все вручную по жестким путям
           docker run --rm -v "${PWD}:/src" -w /src golang:1.21 bash -c "apt-get update -qq && apt-get install -y -qq dpkg > /dev/null && go mod init syspulse || true && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o dist/syspulse . && mkdir -p build/syspulse_1.2.0/DEBIAN build/syspulse_1.2.0/usr/bin && cp dist/syspulse build/syspulse_1.2.0/usr/bin/syspulse && chmod 755 build/syspulse_1.2.0/usr/bin/syspulse && printf 'Package: syspulse\nVersion: 1.2.0\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: DevOps Team <devops@example.com>\nDescription: Lightweight CLI tool for a system health snapshot\n Reads /proc and reports uptime, load average and memory info.\nDepends: libc6 (>= 2.17)\n' > build/syspulse_1.2.0/DEBIAN/control && dpkg-deb --build --root-owner-group build/syspulse_1.2.0 dist/syspulse_1.2.0_amd64.deb"
           
           echo "deb_path=dist/syspulse_1.2.0_amd64.deb" >> $env:GITHUB_OUTPUT
@@ -42,4 +41,5 @@ jobs:
         shell: powershell
         run: |
           $nexusHost = "${{ secrets.NEXUS_HOST }}"
-          docker run --rm -e NEXUS_HOST="$nexusHost" ubuntu:22.04 bash -c "apt-get update -y && apt-get install -y --no-install-recommends ca-certificates curl && echo 'deb [trusted=yes] http://'`$NEXUS_HOST':8081/repository/syspulse/ stable main' > /etc/apt/sources.list.d/syspulse.list && apt-get update && apt-get install -y syspulse && syspulse --version"
+          $cmd = "apt-get update -y -o Acquire::Retries=3 && apt-get install -y --no-install-recommends ca-certificates curl && echo 'deb [trusted=yes] http://host.docker.internal:8081/repository/syspulse/ stable main' > /etc/apt/sources.list.d/syspulse.list && apt-get update -y -o Acquire::Retries=3 && apt-get install -y syspulse && syspulse --version"
+          docker run --rm -e NEXUS_HOST="$nexusHost" ubuntu:22.04 bash -c "$cmd"
