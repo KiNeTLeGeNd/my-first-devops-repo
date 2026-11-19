@@ -40,6 +40,7 @@ jobs:
       - name: Verify install via apt in Ubuntu container
         shell: powershell
         run: |
-          $nexusHost = "${{ secrets.NEXUS_HOST }}"
-          $cmd = "apt-get update -y -o Acquire::Retries=3 && apt-get install -y --no-install-recommends ca-certificates curl && echo 'deb [trusted=yes] http://host.docker.internal:8081/repository/syspulse/ stable main' > /etc/apt/sources.list.d/syspulse.list && apt-get update -y -o Acquire::Retries=3 && apt-get install -y syspulse && syspulse --version"
-          docker run --rm -e NEXUS_HOST="$nexusHost" ubuntu:22.04 bash -c "$cmd"
+          $nexusUser = "${{ secrets.NEXUS_USER }}"
+          $nexusPass = "${{ secrets.NEXUS_PASSWORD }}"
+          $cmd = "apt-get update -y && apt-get install -y --no-install-recommends ca-certificates curl && echo 'deb [trusted=yes] http://'`$NEXUS_USER':'`$NEXUS_PASS'@host.docker.internal:8081/repository/syspulse/ stable main' > /etc/apt/sources.list.d/syspulse.list && apt-get update -y && apt-get install -y syspulse && syspulse --version"
+          docker run --rm -e NEXUS_USER="$nexusUser" -e NEXUS_PASS="$nexusPass" ubuntu:22.04 bash -c "$cmd"
