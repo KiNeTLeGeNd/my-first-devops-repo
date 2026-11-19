@@ -42,5 +42,9 @@ jobs:
         run: |
           $nexusUser = "${{ secrets.NEXUS_USER }}"
           $nexusPass = "${{ secrets.NEXUS_PASSWORD }}"
-          $cmd = "apt-get update -y && apt-get install -y --no-install-recommends ca-certificates curl && echo 'deb [trusted=yes] http://'`$NEXUS_USER':'`$NEXUS_PASS'@host.docker.internal:8081/repository/syspulse/ stable main' > /etc/apt/sources.list.d/syspulse.list && apt-get update -y && apt-get install -y syspulse && syspulse --version"
+          
+          # Мы убрали apt-get update для стандартных репозиториев (чтобы не было Connection Refused).
+          # Теперь apt обновляет списки ТОЛЬКО из Nexus и сразу ставит пакет.
+          $cmd = "echo 'deb [trusted=yes] http://'`$NEXUS_USER':'`$NEXUS_PASS'@host.docker.internal:8081/repository/syspulse/ stable main' > /etc/apt/sources.list.d/syspulse.list && apt-get update -o Dir::Etc::sourcelist='sources.list.d/syspulse.list' -o Dir::Etc::sourceparts='-' -o APT::Get::List-Cleanup='0' && apt-get install -y syspulse && syspulse --version"
+          
           docker run --rm -e NEXUS_USER="$nexusUser" -e NEXUS_PASS="$nexusPass" ubuntu:22.04 bash -c "$cmd"
